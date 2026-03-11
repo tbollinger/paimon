@@ -127,10 +127,30 @@ function buildProjectDailyStats(entries) {
 }
 
 export function runCollection(db, { statsData, historyLines, apiKey }) {
-    const { dailyStats, modelTokensByDay } = parseStatsCache(statsData);
+    const { dailyStats, modelTokensByDay, modelUsage } = parseStatsCache(statsData);
     const historyEntries = parseHistory(historyLines);
     const sessions = groupIntoSessions(historyEntries);
     const projectDailyStats = buildProjectDailyStats(historyEntries);
+
+    // Calculate real lifetime cost per model from modelUsage (has actual token counts)
+    const lifetimeCostByModel = {};
+    for (const [model, usage] of Object.entries(modelUsage)) {
+        lifetimeCostByModel[model] = estimateCost({
+            model,
+            input_tokens: usage.inputTokens || 0,
+            output_tokens: usage.outputTokens || 0,
+            cache_read_tokens: usage.cacheReadInputTokens || 0,
+            cache_creation_tokens: usage.cacheCreationInputTokens || 0,
+        });
+    }
+
+    // Calculate total tokens per model across all days (for proportional distribution)
+    const totalTokensByModel = {};
+    for (const entry of Object.values(modelTokensByDay)) {
+        for (const [model, tokens] of Object.entries(entry)) {
+            totalTokensByModel[model] = (totalTokensByModel[model] || 0) + tokens;
+        }
+    }
 
     // Upsert daily stats from stats-cache (aggregated "all" project)
     for (const stat of dailyStats) {
@@ -139,13 +159,16 @@ export function runCollection(db, { statsData, historyLines, apiKey }) {
 
         if (models.length > 0) {
             for (const model of models) {
+                // Distribute lifetime cost proportionally by daily token share
+                const modelTotal = totalTokensByModel[model] || 1;
+                const dayShare = dayTokens[model] / modelTotal;
+                const modelLifetimeCost = lifetimeCostByModel[model] || 0;
+                const dayCost = modelLifetimeCost * dayShare;
+
                 upsertDailyStat(db, {
                     ...stat,
                     model,
-                    estimated_cost_usd: estimateCost({
-                        model,
-                        message_count: stat.message_count,
-                    }),
+                    estimated_cost_usd: dayCost,
                     estimated: 1,
                 });
             }
@@ -162,18 +185,21 @@ export function runCollection(db, { statsData, historyLines, apiKey }) {
         }
     }
 
+    // Calculate total messages across all projects for proportional cost distribution
+    const totalProjectMessages = projectDailyStats.reduce((s, p) => s + p.message_count, 0) || 1;
+    const totalLifetimeCost = Object.values(lifetimeCostByModel).reduce((s, c) => s + c, 0);
+
     // Upsert per-project daily stats from history
     for (const stat of projectDailyStats) {
+        // Distribute total lifetime cost proportionally by message share
+        const messageShare = stat.message_count / totalProjectMessages;
         upsertDailyStat(db, {
             date: stat.date,
             project: stat.project,
             message_count: stat.message_count,
             session_count: 0,
             tool_call_count: 0,
-            estimated_cost_usd: estimateCost({
-                model: 'claude-sonnet-4-5-20250929',
-                message_count: stat.message_count,
-            }),
+            estimated_cost_usd: totalLifetimeCost * messageShare,
             model: '',
             estimated: 1,
         });

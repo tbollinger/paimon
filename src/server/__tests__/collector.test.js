@@ -329,9 +329,17 @@ describe('collector', () => {
                 dailyModelTokens: [
                     {
                         date: '2026-03-10',
-                        tokensByModel: { 'claude-sonnet-4': { input: 1000, output: 5000 } },
+                        tokensByModel: { 'claude-sonnet-4': 5000 },
                     },
                 ],
+                modelUsage: {
+                    'claude-sonnet-4': {
+                        inputTokens: 1000,
+                        outputTokens: 5000,
+                        cacheReadInputTokens: 0,
+                        cacheCreationInputTokens: 0,
+                    },
+                },
             };
 
             runCollection(db, { statsData, historyLines: [], apiKey: null });
