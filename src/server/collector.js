@@ -152,8 +152,34 @@ export function runCollection(db, { statsData, historyLines, apiKey }) {
         }
     }
 
-    // Upsert daily stats from stats-cache (aggregated "all" project)
-    for (const stat of dailyStats) {
+    // Build a set of dates covered by stats-cache
+    const statsCacheDates = new Set(dailyStats.map((s) => s.date));
+
+    // Build daily aggregates from history for days NOT in stats-cache
+    const historyDailyAgg = new Map();
+    for (const entry of historyEntries) {
+        const date = new Date(entry.timestamp).toISOString().split('T')[0];
+        if (!statsCacheDates.has(date)) {
+            if (!historyDailyAgg.has(date)) {
+                historyDailyAgg.set(date, { date, project: 'all', message_count: 0, session_count: 0, tool_call_count: 0 });
+            }
+            historyDailyAgg.get(date).message_count++;
+        }
+    }
+
+    // Count sessions per day from grouped sessions for history-only days
+    for (const session of sessions) {
+        const date = session.started_at.split('T')[0];
+        if (historyDailyAgg.has(date)) {
+            historyDailyAgg.get(date).session_count++;
+        }
+    }
+
+    // Merge: use stats-cache where available, history-derived for the rest
+    const allDailyStats = [...dailyStats, ...historyDailyAgg.values()];
+
+    // Upsert daily stats (aggregated "all" project)
+    for (const stat of allDailyStats) {
         const dayTokens = modelTokensByDay[stat.date] || {};
         const models = Object.keys(dayTokens);
 
