@@ -2,6 +2,13 @@ import 'dotenv/config';
 import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createDb } from './src/server/db.js';
+import { startCollector } from './src/server/collector.js';
+import { createStatsRouter } from './src/server/routes/stats.js';
+import { createProjectsRouter } from './src/server/routes/projects.js';
+import { createSessionsRouter } from './src/server/routes/sessions.js';
+import { createConfigRouter } from './src/server/routes/config.js';
+import { createBudgetRouter } from './src/server/routes/budget.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -11,20 +18,32 @@ const port = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// Serve built frontend in production
-app.use(express.static(join(__dirname, 'dist')));
+// Database
+const db = createDb(join(__dirname, 'data', 'paimon.db'));
+
+// API routes
+app.use('/api/stats', createStatsRouter(db));
+app.use('/api/projects', createProjectsRouter(db));
+app.use('/api/sessions', createSessionsRouter(db));
+app.use('/api/config', createConfigRouter(db));
+app.use('/api/budget', createBudgetRouter(db));
 
 app.get('/api/health', (req, res) => {
-  res.json({ success: true, data: { status: 'ok' } });
+    res.json({ success: true, data: { status: 'ok' } });
 });
 
-// SPA fallback
+// Serve built frontend
+app.use(express.static(join(__dirname, 'dist')));
+
 app.get('/{*path}', (req, res) => {
-  if (!req.path.startsWith('/api')) {
-    res.sendFile(join(__dirname, 'dist', 'index.html'));
-  }
+    if (!req.path.startsWith('/api')) {
+        res.sendFile(join(__dirname, 'dist', 'index.html'));
+    }
 });
+
+// Start collector
+startCollector(db);
 
 app.listen(port, () => {
-  console.log(`[pAImon] running on http://localhost:${port}`);
+    console.log(`[pAImon] running on http://localhost:${port}`);
 });
