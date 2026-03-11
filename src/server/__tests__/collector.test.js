@@ -321,42 +321,48 @@ describe('collector', () => {
             closeDb(db);
         });
 
-        it('writes parsed stats-cache data to daily_stats table', () => {
+        it('enriches history-derived daily stats with stats-cache tool counts and model tokens', () => {
+            // History is the source of truth for message counts
+            const historyLines = [
+                JSON.stringify({ display: 'msg1', timestamp: 1773100800000, project: '/proj', sessionId: 's1' }),
+                JSON.stringify({ display: 'msg2', timestamp: 1773100860000, project: '/proj', sessionId: 's1' }),
+                JSON.stringify({ display: 'msg3', timestamp: 1773100920000, project: '/proj', sessionId: 's1' }),
+            ]; // 3 messages on 2026-03-10
+
             const statsData = {
                 dailyActivity: [
-                    { date: '2026-03-10', messageCount: 10, sessionCount: 2, toolCallCount: 5 },
+                    { date: '2026-03-10', messageCount: 50, sessionCount: 2, toolCallCount: 15 },
                 ],
                 dailyModelTokens: [
-                    {
-                        date: '2026-03-10',
-                        tokensByModel: { 'claude-sonnet-4': 5000 },
-                    },
+                    { date: '2026-03-10', tokensByModel: { 'claude-sonnet-4': 5000 } },
                 ],
                 modelUsage: {
                     'claude-sonnet-4': {
-                        inputTokens: 1000,
-                        outputTokens: 5000,
-                        cacheReadInputTokens: 0,
-                        cacheCreationInputTokens: 0,
+                        inputTokens: 1000, outputTokens: 5000,
+                        cacheReadInputTokens: 0, cacheCreationInputTokens: 0,
                     },
                 },
             };
 
-            runCollection(db, { statsData, historyLines: [], apiKey: null });
+            runCollection(db, { statsData, historyLines, apiKey: null });
 
             const rows = db.prepare('SELECT * FROM daily_stats WHERE project = ?').all('all');
 
             expect(rows).toHaveLength(1);
             expect(rows[0].date).toBe('2026-03-10');
             expect(rows[0].model).toBe('claude-sonnet-4');
-            expect(rows[0].message_count).toBe(10);
-            expect(rows[0].session_count).toBe(2);
-            expect(rows[0].tool_call_count).toBe(5);
+            // Message count comes from history (3), NOT stats-cache (50)
+            expect(rows[0].message_count).toBe(3);
+            // Tool call count is enriched from stats-cache
+            expect(rows[0].tool_call_count).toBe(15);
             expect(rows[0].estimated).toBe(1);
             expect(rows[0].estimated_cost_usd).toBeGreaterThan(0);
         });
 
-        it('creates multiple rows when multiple models are used on a day', () => {
+        it('creates multiple model rows when multiple models used on a day', () => {
+            const historyLines = [
+                JSON.stringify({ display: 'msg', timestamp: 1773100800000, project: '/proj', sessionId: 's1' }),
+            ];
             const statsData = {
                 dailyActivity: [
                     { date: '2026-03-10', messageCount: 10, sessionCount: 2, toolCallCount: 5 },
@@ -364,15 +370,16 @@ describe('collector', () => {
                 dailyModelTokens: [
                     {
                         date: '2026-03-10',
-                        tokensByModel: {
-                            'claude-sonnet-4': { input: 1000, output: 5000 },
-                            'claude-opus-4-6': { input: 500, output: 2000 },
-                        },
+                        tokensByModel: { 'claude-sonnet-4': 3000, 'claude-opus-4-6': 2000 },
                     },
                 ],
+                modelUsage: {
+                    'claude-sonnet-4': { inputTokens: 1000, outputTokens: 3000, cacheReadInputTokens: 0, cacheCreationInputTokens: 0 },
+                    'claude-opus-4-6': { inputTokens: 500, outputTokens: 2000, cacheReadInputTokens: 0, cacheCreationInputTokens: 0 },
+                },
             };
 
-            runCollection(db, { statsData, historyLines: [], apiKey: null });
+            runCollection(db, { statsData, historyLines, apiKey: null });
 
             const rows = db.prepare('SELECT * FROM daily_stats WHERE project = ?').all('all');
 
@@ -382,13 +389,16 @@ describe('collector', () => {
         });
 
         it('falls back to empty model when no token data available', () => {
+            const historyLines = [
+                JSON.stringify({ display: 'msg', timestamp: 1773100800000, project: '/proj', sessionId: 's1' }),
+            ];
             const statsData = {
                 dailyActivity: [
                     { date: '2026-03-10', messageCount: 5, sessionCount: 1, toolCallCount: 2 },
                 ],
             };
 
-            runCollection(db, { statsData, historyLines: [], apiKey: null });
+            runCollection(db, { statsData, historyLines, apiKey: null });
 
             const rows = db.prepare('SELECT * FROM daily_stats WHERE project = ?').all('all');
 

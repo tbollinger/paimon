@@ -127,12 +127,12 @@ function buildProjectDailyStats(entries) {
 }
 
 export function runCollection(db, { statsData, historyLines, apiKey }) {
-    const { dailyStats, modelTokensByDay, modelUsage } = parseStatsCache(statsData);
+    const { dailyStats: statsCacheDays, modelTokensByDay, modelUsage } = parseStatsCache(statsData);
     const historyEntries = parseHistory(historyLines);
     const sessions = groupIntoSessions(historyEntries);
     const projectDailyStats = buildProjectDailyStats(historyEntries);
 
-    // Calculate real lifetime cost per model from modelUsage (has actual token counts)
+    // === COST CALCULATION from modelUsage (real token data) ===
     const lifetimeCostByModel = {};
     for (const [model, usage] of Object.entries(modelUsage)) {
         lifetimeCostByModel[model] = estimateCost({
@@ -143,82 +143,82 @@ export function runCollection(db, { statsData, historyLines, apiKey }) {
             cache_creation_tokens: usage.cacheCreationInputTokens || 0,
         });
     }
+    const totalLifetimeCost = Object.values(lifetimeCostByModel).reduce((s, c) => s + c, 0);
 
-    // Calculate total tokens per model across all days (for proportional distribution)
-    const totalTokensByModel = {};
-    for (const entry of Object.values(modelTokensByDay)) {
-        for (const [model, tokens] of Object.entries(entry)) {
-            totalTokensByModel[model] = (totalTokensByModel[model] || 0) + tokens;
-        }
+    // === BUILD DAILY STATS FROM HISTORY (single source of truth for message counts) ===
+    // Index stats-cache by date for enrichment (tool_call_count only)
+    const statsCacheByDate = new Map();
+    for (const s of statsCacheDays) {
+        statsCacheByDate.set(s.date, s);
     }
 
-    // Build a set of dates covered by stats-cache
-    const statsCacheDates = new Set(dailyStats.map((s) => s.date));
-
-    // Build daily aggregates from history for days NOT in stats-cache
-    const historyDailyAgg = new Map();
+    // Build "all" project daily stats from history entries
+    const historyByDay = new Map();
     for (const entry of historyEntries) {
         const date = new Date(entry.timestamp).toISOString().split('T')[0];
-        if (!statsCacheDates.has(date)) {
-            if (!historyDailyAgg.has(date)) {
-                historyDailyAgg.set(date, { date, project: 'all', message_count: 0, session_count: 0, tool_call_count: 0 });
-            }
-            historyDailyAgg.get(date).message_count++;
+        if (!historyByDay.has(date)) {
+            historyByDay.set(date, { message_count: 0 });
         }
+        historyByDay.get(date).message_count++;
     }
 
-    // Count sessions per day from grouped sessions for history-only days
+    // Count sessions per day
+    const sessionsPerDay = new Map();
     for (const session of sessions) {
         const date = session.started_at.split('T')[0];
-        if (historyDailyAgg.has(date)) {
-            historyDailyAgg.get(date).session_count++;
-        }
+        sessionsPerDay.set(date, (sessionsPerDay.get(date) || 0) + 1);
     }
 
-    // Merge: use stats-cache where available, history-derived for the rest
-    const allDailyStats = [...dailyStats, ...historyDailyAgg.values()];
+    // Total history messages across all days (for proportional cost distribution)
+    const totalHistoryMessages = historyEntries.length || 1;
 
-    // Upsert daily stats (aggregated "all" project)
-    for (const stat of allDailyStats) {
-        const dayTokens = modelTokensByDay[stat.date] || {};
+    // Upsert "all" project daily stats
+    // Cost per day = totalLifetimeCost * (day messages / total messages)
+    // Within a day, split across models by token proportion if available
+    for (const [date, dayData] of historyByDay) {
+        const statsEnrichment = statsCacheByDate.get(date);
+        const toolCallCount = statsEnrichment ? statsEnrichment.tool_call_count : 0;
+        const sessionCount = sessionsPerDay.get(date) || 0;
+
+        const messageShare = dayData.message_count / totalHistoryMessages;
+        const dayCost = totalLifetimeCost * messageShare;
+
+        const dayTokens = modelTokensByDay[date] || {};
         const models = Object.keys(dayTokens);
 
         if (models.length > 0) {
+            // Split day's cost across models by token proportion within this day
+            const dayTotalTokens = Object.values(dayTokens).reduce((s, t) => s + t, 0) || 1;
             for (const model of models) {
-                // Distribute lifetime cost proportionally by daily token share
-                const modelTotal = totalTokensByModel[model] || 1;
-                const dayShare = dayTokens[model] / modelTotal;
-                const modelLifetimeCost = lifetimeCostByModel[model] || 0;
-                const dayCost = modelLifetimeCost * dayShare;
-
+                const modelShare = dayTokens[model] / dayTotalTokens;
                 upsertDailyStat(db, {
-                    ...stat,
+                    date,
+                    project: 'all',
+                    message_count: dayData.message_count,
+                    session_count: sessionCount,
+                    tool_call_count: toolCallCount,
                     model,
-                    estimated_cost_usd: dayCost,
+                    estimated_cost_usd: dayCost * modelShare,
                     estimated: 1,
                 });
             }
         } else {
             upsertDailyStat(db, {
-                ...stat,
+                date,
+                project: 'all',
+                message_count: dayData.message_count,
+                session_count: sessionCount,
+                tool_call_count: toolCallCount,
                 model: '',
-                estimated_cost_usd: estimateCost({
-                    model: 'claude-sonnet-4-5-20250929',
-                    message_count: stat.message_count,
-                }),
+                estimated_cost_usd: dayCost,
                 estimated: 1,
             });
         }
     }
 
-    // Calculate total messages across all projects for proportional cost distribution
-    const totalProjectMessages = projectDailyStats.reduce((s, p) => s + p.message_count, 0) || 1;
-    const totalLifetimeCost = Object.values(lifetimeCostByModel).reduce((s, c) => s + c, 0);
-
-    // Upsert per-project daily stats from history
+    // === PER-PROJECT DAILY STATS (from history — same source as "all") ===
     for (const stat of projectDailyStats) {
-        // Distribute total lifetime cost proportionally by message share
-        const messageShare = stat.message_count / totalProjectMessages;
+        const messageShare = stat.message_count / totalHistoryMessages;
         upsertDailyStat(db, {
             date: stat.date,
             project: stat.project,
@@ -231,7 +231,7 @@ export function runCollection(db, { statsData, historyLines, apiKey }) {
         });
     }
 
-    // Upsert sessions
+    // === SESSIONS ===
     for (const session of sessions) {
         upsertSession(db, session);
     }
