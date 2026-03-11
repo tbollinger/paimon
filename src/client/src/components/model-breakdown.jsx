@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useApi } from '../hooks/use-api.js';
-import { formatNumber } from '../utils/format.js';
+import { formatNumber, formatCurrency } from '../utils/format.js';
 
 const COLORS = ['#6366f1', '#22c55e', '#eab308', '#ef4444', '#8b5cf6', '#06b6d4'];
 
@@ -18,21 +18,32 @@ export default function ModelBreakdown({ filters }) {
     params: { from: filters.from, to: filters.to, project: 'all' },
   });
 
-  const chartData = useMemo(() => {
-    if (!stats) return [];
+  const { chartData, tableData } = useMemo(() => {
+    if (!stats) return { chartData: [], tableData: [] };
     const byModel = new Map();
     for (const row of stats) {
       const model = row.model || 'unknown';
-      const existing = byModel.get(model) || 0;
-      byModel.set(model, existing + row.message_count);
+      const existing = byModel.get(model) || { messages: 0, cost: 0 };
+      byModel.set(model, {
+        messages: existing.messages + row.message_count,
+        cost: existing.cost + row.estimated_cost_usd,
+      });
     }
-    return Array.from(byModel.entries())
-      .filter(([, count]) => count > 0)
-      .map(([model, count]) => ({
+    const entries = Array.from(byModel.entries())
+      .filter(([, d]) => d.cost > 0 || d.messages > 0)
+      .sort((a, b) => b[1].cost - a[1].cost);
+
+    return {
+      chartData: entries.map(([model, d]) => ({
         name: formatModelName(model),
-        value: count,
-      }))
-      .sort((a, b) => b.value - a.value);
+        value: d.cost,
+      })),
+      tableData: entries.map(([model, d]) => ({
+        name: formatModelName(model),
+        messages: d.messages,
+        cost: d.cost,
+      })),
+    };
   }, [stats]);
 
   if (loading) return <div style={{ color: 'var(--text-secondary)' }}>Loading...</div>;
@@ -48,14 +59,14 @@ export default function ModelBreakdown({ filters }) {
   return (
     <div>
       <h3 style={{ fontSize: 14, marginBottom: 16, color: 'var(--text-secondary)' }}>Model Breakdown</h3>
-      <ResponsiveContainer width="100%" height={260}>
+      <ResponsiveContainer width="100%" height={200}>
         <PieChart>
           <Pie
             data={chartData}
             cx="50%"
             cy="50%"
-            innerRadius={60}
-            outerRadius={100}
+            innerRadius={50}
+            outerRadius={85}
             paddingAngle={3}
             dataKey="value"
           >
@@ -70,11 +81,29 @@ export default function ModelBreakdown({ filters }) {
               borderRadius: 8,
               fontSize: 13,
             }}
-            formatter={(v) => formatNumber(v)}
+            formatter={(v) => formatCurrency(v)}
           />
           <Legend wrapperStyle={{ fontSize: 12 }} />
         </PieChart>
       </ResponsiveContainer>
+      <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', marginTop: 12 }}>
+        <thead>
+          <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)' }}>
+            <th style={{ textAlign: 'left', padding: '6px 8px' }}>Model</th>
+            <th style={{ textAlign: 'right', padding: '6px 8px' }}>Messages</th>
+            <th style={{ textAlign: 'right', padding: '6px 8px' }}>Cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tableData.map((row) => (
+            <tr key={row.name} style={{ borderBottom: '1px solid var(--border)' }}>
+              <td style={{ padding: '6px 8px' }}>{row.name}</td>
+              <td style={{ textAlign: 'right', padding: '6px 8px' }}>{formatNumber(row.messages)}</td>
+              <td style={{ textAlign: 'right', padding: '6px 8px' }}>{formatCurrency(row.cost)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
