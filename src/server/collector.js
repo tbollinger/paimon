@@ -127,10 +127,11 @@ function buildProjectDailyStats(entries) {
     return Array.from(byDayProject.values());
 }
 
-export function readSessionNames() {
+export function readSessionMetadata() {
     const projectsDir = join(CLAUDE_HOME, 'projects');
     const nameMap = new Map();
-    if (!existsSync(projectsDir)) return nameMap;
+    const toolCallMap = new Map();
+    if (!existsSync(projectsDir)) return { nameMap, toolCallMap };
 
     try {
         for (const dir of readdirSync(projectsDir)) {
@@ -151,7 +152,7 @@ export function readSessionNames() {
                 }
             }
 
-            // Source 2: session JSONL files (custom-title entries override index)
+            // Source 2: session JSONL files (custom-title + tool_use counts)
             try {
                 const files = readdirSync(projDir).filter((f) => f.endsWith('.jsonl'));
                 for (const file of files) {
@@ -159,6 +160,7 @@ export function readSessionNames() {
                     try {
                         const lines = readFileSync(join(projDir, file), 'utf-8').split('\n');
                         let lastTitle = null;
+                        let toolCalls = 0;
                         for (const line of lines) {
                             if (!line.trim()) continue;
                             try {
@@ -166,12 +168,23 @@ export function readSessionNames() {
                                 if (entry.type === 'custom-title' && entry.customTitle) {
                                     lastTitle = entry.customTitle;
                                 }
+                                const content = entry.message?.content;
+                                if (Array.isArray(content)) {
+                                    for (const block of content) {
+                                        if (block && block.type === 'tool_use') {
+                                            toolCalls++;
+                                        }
+                                    }
+                                }
                             } catch {
                                 // skip malformed lines
                             }
                         }
                         if (lastTitle) {
                             nameMap.set(sessionId, lastTitle);
+                        }
+                        if (toolCalls > 0) {
+                            toolCallMap.set(sessionId, toolCalls);
                         }
                     } catch {
                         // skip unreadable files
@@ -185,7 +198,7 @@ export function readSessionNames() {
         // skip if projects dir unreadable
     }
 
-    return nameMap;
+    return { nameMap, toolCallMap };
 }
 
 export function runCollection(db, { statsData, historyLines, apiKey }) {
@@ -208,12 +221,6 @@ export function runCollection(db, { statsData, historyLines, apiKey }) {
     const totalLifetimeCost = Object.values(lifetimeCostByModel).reduce((s, c) => s + c, 0);
 
     // === BUILD DAILY STATS FROM HISTORY (single source of truth for message counts) ===
-    // Index stats-cache by date for enrichment (tool_call_count only)
-    const statsCacheByDate = new Map();
-    for (const s of statsCacheDays) {
-        statsCacheByDate.set(s.date, s);
-    }
-
     // Build "all" project daily stats from history entries
     const historyByDay = new Map();
     for (const entry of historyEntries) {
@@ -237,12 +244,27 @@ export function runCollection(db, { statsData, historyLines, apiKey }) {
     // Total history messages across all days (for proportional cost distribution)
     const totalHistoryMessages = historyEntries.length || 1;
 
+    // === SESSION METADATA (names + tool call counts from JSONL files) ===
+    const { nameMap: sessionNames, toolCallMap } = readSessionMetadata();
+
+    // Build per-project per-day and all-project per-day tool call counts
+    const toolCallsByProjectDay = new Map();
+    const toolCallsByDay = new Map();
+    for (const session of sessions) {
+        const tc = toolCallMap.get(session.id) || 0;
+        if (tc > 0) {
+            const date = session.started_at.split('T')[0];
+            const projKey = `${date}|${session.project}`;
+            toolCallsByProjectDay.set(projKey, (toolCallsByProjectDay.get(projKey) || 0) + tc);
+            toolCallsByDay.set(date, (toolCallsByDay.get(date) || 0) + tc);
+        }
+    }
+
     // Upsert "all" project daily stats
     // Cost per day = totalLifetimeCost * (day messages / total messages)
     // Within a day, split across models by token proportion if available
     for (const [date, dayData] of historyByDay) {
-        const statsEnrichment = statsCacheByDate.get(date);
-        const toolCallCount = statsEnrichment ? statsEnrichment.tool_call_count : 0;
+        const toolCallCount = toolCallsByDay.get(date) || 0;
         const sessionCount = sessionsPerDay.get(date) || 0;
 
         const messageShare = dayData.message_count / totalHistoryMessages;
@@ -285,12 +307,13 @@ export function runCollection(db, { statsData, historyLines, apiKey }) {
     for (const stat of projectDailyStats) {
         const messageShare = stat.message_count / totalHistoryMessages;
         const projSessionCount = sessionsPerProjectDay.get(`${stat.date}|${stat.project}`) || 0;
+        const projToolCalls = toolCallsByProjectDay.get(`${stat.date}|${stat.project}`) || 0;
         upsertDailyStat(db, {
             date: stat.date,
             project: stat.project,
             message_count: stat.message_count,
             session_count: projSessionCount,
-            tool_call_count: 0,
+            tool_call_count: projToolCalls,
             estimated_cost_usd: totalLifetimeCost * messageShare,
             model: '',
             estimated: 1,
@@ -298,7 +321,6 @@ export function runCollection(db, { statsData, historyLines, apiKey }) {
     }
 
     // === SESSIONS ===
-    const sessionNames = readSessionNames();
     for (const session of sessions) {
         session.session_name = sessionNames.get(session.id) || '';
         upsertSession(db, session);
