@@ -33,5 +33,10 @@ export function createConfigRouter(db) {
         res.json({ success: true, data: status });
     });
 
+    router.get('/theme', (req, res) => {
+        const dithered = (process.env.DITHERED_BACKGROUND || 'true').toLowerCase();
+        res.json({ success: true, data: { dithered_background: dithered === 'true' || dithered === '1' } });
+    });
+
     return router;
 }

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import TopBar from './components/topbar.jsx';
 import BudgetAlert from './components/budget-alert.jsx';
 import FilterBar from './components/filter-bar.jsx';
@@ -53,6 +53,17 @@ export default function App() {
   });
   const [selectedSession, setSelectedSession] = useState(null);
   const [copyWithResume, setCopyWithResume] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/config/theme')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && !json.data.dithered_background) {
+          document.body.style.backgroundImage = 'none';
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const { data: sessionsData } = useApi('/api/sessions', {
     params: { from: filters.from, to: filters.to, project: filters.project, limit: '20' },

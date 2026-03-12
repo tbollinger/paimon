@@ -66,6 +66,7 @@ cp .env.example .env
 | `ANTHROPIC_API_KEY` | _(none)_ | Optional: enables real cost data from the Anthropic API |
 | `DAILY_BUDGET_USD` | _(none)_ | Optional: daily spend limit for budget alerts |
 | `MONTHLY_BUDGET_USD` | _(none)_ | Optional: monthly spend limit for budget alerts |
+| `DITHERED_BACKGROUND` | `true` | Set to `false` for a plain white background |
 
 All settings have sensible defaults. pAImon works out of the box if `~/.claude` exists.
 
