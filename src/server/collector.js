@@ -4,7 +4,8 @@ import { join } from 'path';
 import { deleteOldData, setConfig, upsertDailyStat, upsertSession } from './db.js';
 import { estimateCost } from './estimator.js';
 
-const CLAUDE_HOME = process.env.CLAUDE_HOME || join(process.env.HOME, '.claude');
+const rawHome = process.env.CLAUDE_HOME || join(process.env.HOME, '.claude');
+const CLAUDE_HOME = rawHome.startsWith('~') ? join(process.env.HOME, rawHome.slice(1)) : rawHome;
 const SESSION_GAP_MS = 30 * 60 * 1000; // 30 minutes
 
 export function parseStatsCache(data) {

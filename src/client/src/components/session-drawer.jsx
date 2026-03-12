@@ -235,7 +235,7 @@ export default function SessionDrawer({ session, onClose }) {
                     borderRight: '2px solid var(--border)',
                   }} />
                   <div style={{ padding: '10px 16px', flex: 1 }}>
-                    <span style={{ fontSize: 12, color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Unknown</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>You</span>
                     {prompt}
                   </div>
                 </div>

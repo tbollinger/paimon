@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 
-const CLAUDE_HOME = process.env.CLAUDE_HOME || join(process.env.HOME, '.claude');
+const rawHome = process.env.CLAUDE_HOME || join(process.env.HOME, '.claude');
+const CLAUDE_HOME = rawHome.startsWith('~') ? join(process.env.HOME, rawHome.slice(1)) : rawHome;
 
 function findSessionFile(sessionId) {
     const projectsDir = join(CLAUDE_HOME, 'projects');
@@ -23,7 +24,7 @@ function parseConversation(filePath) {
         if (!line.trim()) continue;
         try {
             const entry = JSON.parse(line);
-            const type = entry.type;
+            const type = entry.type || (entry.message && entry.message.role);
 
             if (type === 'user') {
                 const msg = entry.message || {};
