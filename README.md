@@ -15,6 +15,7 @@ pAImon reads from your local Claude Code config directory (default `~/.claude/`)
 | `~/.claude/stats-cache.json` | Aggregated daily activity, model token counts, and session metrics |
 | `~/.claude/history.jsonl` | Per-message history with timestamps, projects, and session IDs |
 | `~/.claude/projects/*/[sessionId].jsonl` | Full conversation transcripts (user prompts + Claude responses) |
+| `~/.claude/projects/*/sessions-index.json` | Session metadata including renamed session names |
 
 Nothing is sent anywhere. All data stays local in a SQLite database at `data/paimon.db`.
 
@@ -23,6 +24,7 @@ Nothing is sent anywhere. All data stays local in a SQLite database at `data/pai
 - **Usage charts** - Messages, sessions, and tool calls over time (daily/weekly/monthly)
 - **Project breakdown** - Per-project message counts, session counts, and estimated costs
 - **Model breakdown** - Cost and usage split across Opus, Sonnet, Haiku with dithered pie chart
+- **Session names** - Displays renamed session names from `claude session rename` or `/rename`
 - **Session browser** - Recent sessions table with copyable session IDs (`claude --resume`)
 - **Conversation viewer** - Full chat-style modal showing your prompts and Claude's responses
 - **Budget alerts** - Visual warnings when daily or monthly spend exceeds thresholds
@@ -63,7 +65,7 @@ cp .env.example .env
 |----------|---------|-------------|
 | `PORT` | `3000` | Server port |
 | `REFRESH_INTERVAL` | `5` | Minutes between data collection cycles |
-| `RETENTION_DAYS` | `90` | How many days of data to keep (0 = forever) |
+| `RETENTION_DAYS` | `0` | How many days of data to keep (0 = keep forever) |
 | `CLAUDE_HOME` | `~/.claude` | Path to your Claude Code config directory |
 | `ANTHROPIC_API_KEY` | _(none)_ | Optional: enables real cost data from the Anthropic API |
 | `DAILY_BUDGET_USD` | _(none)_ | Optional: daily spend limit for budget alerts |
@@ -77,9 +79,10 @@ All settings have sensible defaults. pAImon works out of the box if `~/.claude` 
 1. **Collector** runs on startup and every `REFRESH_INTERVAL` minutes
 2. Reads `stats-cache.json` for aggregate metrics and `history.jsonl` for detailed message history
 3. Groups messages into sessions (by explicit session ID, or by 30-minute gap threshold)
-4. Calculates estimated costs from model token counts and pricing tiers
-5. Upserts everything into SQLite with WAL mode for safe concurrent reads
-6. Frontend fetches from the API and renders charts with Recharts
+4. Reads session names from `sessions-index.json` and `custom-title` entries in session JSONL files
+5. Calculates estimated costs from model token counts and pricing tiers
+6. Upserts everything into SQLite with WAL mode for safe concurrent reads
+7. Frontend fetches from the API and renders charts with Recharts
 
 ## API Endpoints
 

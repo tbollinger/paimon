@@ -322,7 +322,7 @@ export function readHistoryFile() {
 
 export function startCollector(db) {
     const intervalMinutes = parseInt(process.env.REFRESH_INTERVAL || '5', 10);
-    const retentionDays = parseInt(process.env.RETENTION_DAYS || '90', 10);
+    const retentionDays = parseInt(process.env.RETENTION_DAYS || '0', 10);
 
     function collect() {
         try {
