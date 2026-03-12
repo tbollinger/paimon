@@ -10,6 +10,7 @@
     "test": "vitest run --root .",
     "test:watch": "vitest --root ."
   },
+  "license": "MIT",
   "engines": {
     "node": ">=18"
   },

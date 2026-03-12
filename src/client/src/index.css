@@ -32,6 +32,7 @@ body {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 20px;
+  overflow: hidden;
 }
 
 .grid {
@@ -61,6 +62,7 @@ button {
 }
 
 button:hover { border-color: var(--accent); }
+button:focus { border-color: var(--accent); }
 button.active { background: var(--accent); border-color: var(--accent); }
 
 select, input {
@@ -73,3 +75,4 @@ select, input {
 }
 
 select:focus, input:focus { outline: none; border-color: var(--accent); }
+*:focus { outline: none; }

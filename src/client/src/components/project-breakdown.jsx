@@ -21,7 +21,7 @@ export default function ProjectBreakdown({ filters, onProjectSelect }) {
     <div>
       <h3 style={{ fontSize: 14, marginBottom: 16, color: 'var(--text-secondary)' }}>Project Breakdown</h3>
       <ResponsiveContainer width="100%" height={240}>
-        <BarChart data={chartData} layout="vertical" margin={{ left: 100 }}>
+        <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 10 }}>
           <XAxis type="number" stroke="var(--text-secondary)" fontSize={11} tickFormatter={formatNumber} />
           <YAxis type="category" dataKey="name" stroke="var(--text-secondary)" fontSize={11} width={100} />
           <Tooltip
