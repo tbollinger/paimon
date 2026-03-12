@@ -142,6 +142,11 @@ export default function SessionDrawer({ session, onClose }) {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
             <h3 style={{ fontSize: 20, textTransform: 'uppercase' }}>Session Details</h3>
+            {session.session_name && (
+              <span style={{ fontSize: 14, fontWeight: 700 }}>
+                {session.session_name}
+              </span>
+            )}
             <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
               {formatProjectName(session.project)}
             </span>

@@ -133,7 +133,7 @@ export default function App() {
                   <CopyLink sessionId={s.id} withResume={copyWithResume} />
                 </td>
                 <td style={{ padding: '6px 8px', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 400 }}>
-                  {(() => { try { const p = JSON.parse(s.prompts || '[]'); return p[0] || ''; } catch { return ''; } })()}
+                  {s.session_name || (() => { try { const p = JSON.parse(s.prompts || '[]'); return p[0] || ''; } catch { return ''; } })()}
                 </td>
                 <td style={{ textAlign: 'right', padding: '6px 8px' }}>
                   <span

@@ -2,6 +2,8 @@
 
 A self-updating dashboard for monitoring your Claude Code usage, costs, and session history.
 
+![pAImon Dashboard](sample_dashboard.png)
+
 pAImon reads your local Claude Code data files (`~/.claude/`), ingests them into a SQLite database, and serves a black-and-white dithered dashboard that updates every 5 minutes.
 
 ## What It Reads

@@ -1,5 +1,5 @@
 // src/server/collector.js
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { deleteOldData, setConfig, upsertDailyStat, upsertSession } from './db.js';
 import { estimateCost } from './estimator.js';
@@ -127,6 +127,67 @@ function buildProjectDailyStats(entries) {
     return Array.from(byDayProject.values());
 }
 
+export function readSessionNames() {
+    const projectsDir = join(CLAUDE_HOME, 'projects');
+    const nameMap = new Map();
+    if (!existsSync(projectsDir)) return nameMap;
+
+    try {
+        for (const dir of readdirSync(projectsDir)) {
+            const projDir = join(projectsDir, dir);
+
+            // Source 1: sessions-index.json (summary field)
+            const indexPath = join(projDir, 'sessions-index.json');
+            if (existsSync(indexPath)) {
+                try {
+                    const data = JSON.parse(readFileSync(indexPath, 'utf-8'));
+                    for (const entry of data.entries || []) {
+                        if (entry.sessionId && entry.summary) {
+                            nameMap.set(entry.sessionId, entry.summary);
+                        }
+                    }
+                } catch {
+                    // skip malformed index files
+                }
+            }
+
+            // Source 2: session JSONL files (custom-title entries override index)
+            try {
+                const files = readdirSync(projDir).filter((f) => f.endsWith('.jsonl'));
+                for (const file of files) {
+                    const sessionId = file.replace('.jsonl', '');
+                    try {
+                        const lines = readFileSync(join(projDir, file), 'utf-8').split('\n');
+                        let lastTitle = null;
+                        for (const line of lines) {
+                            if (!line.trim()) continue;
+                            try {
+                                const entry = JSON.parse(line);
+                                if (entry.type === 'custom-title' && entry.customTitle) {
+                                    lastTitle = entry.customTitle;
+                                }
+                            } catch {
+                                // skip malformed lines
+                            }
+                        }
+                        if (lastTitle) {
+                            nameMap.set(sessionId, lastTitle);
+                        }
+                    } catch {
+                        // skip unreadable files
+                    }
+                }
+            } catch {
+                // skip unreadable dirs
+            }
+        }
+    } catch {
+        // skip if projects dir unreadable
+    }
+
+    return nameMap;
+}
+
 export function runCollection(db, { statsData, historyLines, apiKey }) {
     const { dailyStats: statsCacheDays, modelTokensByDay, modelUsage } = parseStatsCache(statsData);
     const historyEntries = parseHistory(historyLines);
@@ -237,7 +298,9 @@ export function runCollection(db, { statsData, historyLines, apiKey }) {
     }
 
     // === SESSIONS ===
+    const sessionNames = readSessionNames();
     for (const session of sessions) {
+        session.session_name = sessionNames.get(session.id) || '';
         upsertSession(db, session);
     }
 

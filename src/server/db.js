@@ -30,7 +30,8 @@ export function createDb(dbPath) {
       started_at TEXT NOT NULL,
       message_count INTEGER DEFAULT 0,
       duration_minutes REAL DEFAULT 0,
-      prompts TEXT DEFAULT '[]'
+      prompts TEXT DEFAULT '[]',
+      session_name TEXT DEFAULT ''
     );
 
     CREATE TABLE IF NOT EXISTS api_usage (
@@ -53,6 +54,12 @@ export function createDb(dbPath) {
     CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project);
     CREATE INDEX IF NOT EXISTS idx_sessions_started_at ON sessions(started_at);
   `);
+
+    // Migration: add session_name column if missing (existing databases)
+    const cols = db.prepare("PRAGMA table_info(sessions)").all();
+    if (!cols.some((c) => c.name === 'session_name')) {
+        db.exec("ALTER TABLE sessions ADD COLUMN session_name TEXT DEFAULT ''");
+    }
 
     return db;
 }
@@ -79,12 +86,13 @@ export function upsertDailyStat(db, stat) {
 
 export function upsertSession(db, session) {
     const stmt = db.prepare(`
-    INSERT INTO sessions (id, project, started_at, message_count, duration_minutes, prompts)
-    VALUES (@id, @project, @started_at, @message_count, @duration_minutes, @prompts)
+    INSERT INTO sessions (id, project, started_at, message_count, duration_minutes, prompts, session_name)
+    VALUES (@id, @project, @started_at, @message_count, @duration_minutes, @prompts, @session_name)
     ON CONFLICT(id) DO UPDATE SET
       message_count = @message_count,
       duration_minutes = @duration_minutes,
-      prompts = @prompts
+      prompts = @prompts,
+      session_name = @session_name
   `);
     stmt.run(session);
 }
