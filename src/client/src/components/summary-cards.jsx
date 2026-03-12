@@ -6,7 +6,7 @@ import { formatNumber, formatCurrency, percentChange } from '../utils/format.js'
 function SummaryCard({ title, value, sparkData, changePercent }) {
   return (
     <div className="card">
-      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>{title}</div>
+      <div style={{ fontSize: 22, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: 4 }}>{title}</div>
       <div style={{ fontSize: 28, fontWeight: 700 }}>{value}</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
         {sparkData && sparkData.length > 1 && (
@@ -17,12 +17,15 @@ function SummaryCard({ title, value, sparkData, changePercent }) {
           </ResponsiveContainer>
         )}
         {changePercent != null && (
-          <span style={{
-            fontSize: 12,
-            color: changePercent >= 0 ? 'var(--success)' : 'var(--danger)',
-          }}>
-            {changePercent >= 0 ? '+' : ''}{changePercent.toFixed(1)}%
-          </span>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{
+              fontSize: 14,
+              color: changePercent >= 0 ? 'var(--success)' : 'var(--danger)',
+            }}>
+              {changePercent >= 0 ? '+' : ''}{changePercent.toFixed(1)}%
+            </span>
+            <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>vs prior half</span>
+          </div>
         )}
       </div>
     </div>

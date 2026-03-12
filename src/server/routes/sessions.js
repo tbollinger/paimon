@@ -1,4 +1,65 @@
 import { Router } from 'express';
+import { existsSync, readFileSync, readdirSync } from 'fs';
+import { join } from 'path';
+
+const CLAUDE_HOME = process.env.CLAUDE_HOME || join(process.env.HOME, '.claude');
+
+function findSessionFile(sessionId) {
+    const projectsDir = join(CLAUDE_HOME, 'projects');
+    if (!existsSync(projectsDir)) return null;
+
+    for (const dir of readdirSync(projectsDir)) {
+        const filePath = join(projectsDir, dir, `${sessionId}.jsonl`);
+        if (existsSync(filePath)) return filePath;
+    }
+    return null;
+}
+
+function parseConversation(filePath) {
+    const lines = readFileSync(filePath, 'utf-8').split('\n');
+    const turns = [];
+
+    for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+            const entry = JSON.parse(line);
+            const type = entry.type;
+
+            if (type === 'user') {
+                const msg = entry.message || {};
+                const content = msg.content;
+                let text = '';
+                if (typeof content === 'string') {
+                    text = content;
+                } else if (Array.isArray(content)) {
+                    const textBlocks = content
+                        .filter((b) => typeof b === 'object' && b.type === 'text')
+                        .map((b) => b.text || '');
+                    text = textBlocks.join('\n');
+                }
+                if (text.trim()) {
+                    turns.push({ role: 'user', text: text.trim(), timestamp: entry.timestamp });
+                }
+            } else if (type === 'assistant') {
+                const msg = entry.message || {};
+                const contentBlocks = msg.content || [];
+                const textBlocks = Array.isArray(contentBlocks)
+                    ? contentBlocks
+                        .filter((b) => typeof b === 'object' && b.type === 'text')
+                        .map((b) => b.text || '')
+                    : [];
+                const text = textBlocks.join('\n');
+                if (text.trim()) {
+                    turns.push({ role: 'assistant', text: text.trim(), timestamp: entry.timestamp });
+                }
+            }
+        } catch {
+            // skip malformed lines
+        }
+    }
+
+    return turns;
+}
 
 export function createSessionsRouter(db) {
     const router = Router();
@@ -35,6 +96,22 @@ export function createSessionsRouter(db) {
             return res.status(404).json({ success: false, error: 'Session not found' });
         }
         res.json({ success: true, data: row });
+    });
+
+    router.get('/:id/conversation', (req, res) => {
+        const sessionId = req.params.id;
+        const filePath = findSessionFile(sessionId);
+
+        if (!filePath) {
+            return res.json({ success: true, data: [] });
+        }
+
+        try {
+            const turns = parseConversation(filePath);
+            res.json({ success: true, data: turns });
+        } catch (err) {
+            res.status(500).json({ success: false, error: 'Failed to parse session file' });
+        }
     });
 
     return router;

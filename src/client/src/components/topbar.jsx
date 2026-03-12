@@ -14,16 +14,23 @@ export default function TopBar() {
       padding: '12px 0', borderBottom: '1px solid var(--border)', marginBottom: 16,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px' }}>
-          p<span style={{ color: 'var(--accent)' }}>AI</span>mon
+        <img src="/camel_vector.svg" alt="pAImon" style={{ height: 32 }} />
+        <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px', background: '#000000', color: '#ffffff', padding: '4px 10px', borderRadius: 6 }}>
+          p<span style={{ color: '#ffd700' }}>AI</span>mon
         </h1>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13 }}>
-        <span style={{ color: 'var(--text-secondary)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 16 }}>
+        <span style={{
+          color: 'var(--text-secondary)',
+          background: '#ffffff', border: '2px solid #000000', borderRadius: 8,
+          padding: '4px 12px',
+        }}>
           Last update: {status?.last_collection_at ? formatDateTime(status.last_collection_at) : 'Never'}
         </span>
         <span style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
+          background: '#ffffff', border: '2px solid #000000', borderRadius: 8,
+          padding: '4px 12px',
         }}>
           <span style={{
             width: 8, height: 8, borderRadius: '50%',
@@ -32,9 +39,9 @@ export default function TopBar() {
           {isHealthy ? 'Healthy' : 'Error'}
         </span>
         <span style={{
-          background: dataSource === 'api' ? 'var(--accent)' : 'var(--bg-secondary)',
-          padding: '2px 10px', borderRadius: 12, fontSize: 12,
-          border: '1px solid var(--border)',
+          background: '#ffffff',
+          padding: '4px 12px', borderRadius: 8, fontSize: 14,
+          border: '2px solid #000000',
         }}>
           {dataSource === 'api' ? 'API' : 'Estimated'}
         </span>

@@ -22,7 +22,7 @@ export default function BudgetAlert() {
     <div style={{
       background: bgColor, border: `1px solid ${borderColor}`,
       borderRadius: 8, padding: '10px 16px', marginBottom: 16,
-      display: 'flex', gap: 24, fontSize: 13,
+      display: 'flex', gap: 24, fontSize: 16,
     }}>
       {showDaily && (
         <span>

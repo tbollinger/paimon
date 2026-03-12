@@ -1,24 +1,35 @@
 :root {
-  --bg-primary: #0f1117;
-  --bg-secondary: #1a1d27;
-  --bg-card: #222533;
-  --text-primary: #e4e6eb;
-  --text-secondary: #8b8fa3;
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
-  --success: #22c55e;
-  --warning: #eab308;
-  --danger: #ef4444;
-  --border: #2e3144;
+  --bg-primary: #ffffff;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --text-primary: #000000;
+  --text-secondary: #555555;
+  --accent: #000000;
+  --accent-hover: #333333;
+  --success: #000000;
+  --warning: #000000;
+  --danger: #000000;
+  --border: #000000;
+  --chart-1: #000000;
+  --chart-2: #000000;
+  --chart-3: #000000;
+  --chart-4: #000000;
+  --chart-5: #000000;
+  --chart-6: #000000;
+  --shadow: 4px 4px 0 #000000;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--bg-primary);
+  font-family: 'Courier New', Courier, monospace;
+  background: #ffffff;
+  background-image: radial-gradient(#000000 1px, transparent 1px);
+  background-size: 6px 6px;
   color: var(--text-primary);
   line-height: 1.6;
+  font-size: 18px;
+  font-weight: 800;
 }
 
 .dashboard {
@@ -29,10 +40,11 @@ body {
 
 .card {
   background: var(--bg-card);
-  border: 1px solid var(--border);
+  border: 4px solid var(--border);
   border-radius: 12px;
   padding: 20px;
   overflow: hidden;
+  box-shadow: var(--shadow);
 }
 
 .grid {
@@ -54,24 +66,36 @@ body {
 button {
   background: var(--bg-secondary);
   color: var(--text-primary);
-  border: 1px solid var(--border);
+  border: 3px solid #000000;
   border-radius: 8px;
   padding: 6px 14px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 16px;
+  font-family: inherit;
+  font-weight: 800;
+  box-shadow: 4px 4px 0 #000000;
+  transition: transform 0.1s, box-shadow 0.1s;
 }
 
-button:hover { border-color: var(--accent); }
-button:focus { border-color: var(--accent); }
-button.active { background: var(--accent); border-color: var(--accent); }
+button:hover {
+  background: #e0e0e0;
+  color: #000000;
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 #000000;
+}
+button:active { transform: translate(2px, 2px); box-shadow: 0 0 0 #000000; }
+button:focus { border-color: #000000; }
+button.active { background: #e0e0e0; color: #000000; border-color: #000000; }
 
 select, input {
   background: var(--bg-secondary);
   color: var(--text-primary);
-  border: 1px solid var(--border);
+  border: 3px solid var(--border);
   border-radius: 8px;
   padding: 6px 12px;
-  font-size: 13px;
+  font-size: 16px;
+  font-family: inherit;
+  box-shadow: 2px 2px 0 #000000;
 }
 
 select:focus, input:focus { outline: none; border-color: var(--accent); }

@@ -162,11 +162,14 @@ export function runCollection(db, { statsData, historyLines, apiKey }) {
         historyByDay.get(date).message_count++;
     }
 
-    // Count sessions per day
+    // Count sessions per day (all projects) and per project+day
     const sessionsPerDay = new Map();
+    const sessionsPerProjectDay = new Map();
     for (const session of sessions) {
         const date = session.started_at.split('T')[0];
         sessionsPerDay.set(date, (sessionsPerDay.get(date) || 0) + 1);
+        const projKey = `${date}|${session.project}`;
+        sessionsPerProjectDay.set(projKey, (sessionsPerProjectDay.get(projKey) || 0) + 1);
     }
 
     // Total history messages across all days (for proportional cost distribution)
@@ -219,11 +222,12 @@ export function runCollection(db, { statsData, historyLines, apiKey }) {
     // === PER-PROJECT DAILY STATS (from history — same source as "all") ===
     for (const stat of projectDailyStats) {
         const messageShare = stat.message_count / totalHistoryMessages;
+        const projSessionCount = sessionsPerProjectDay.get(`${stat.date}|${stat.project}`) || 0;
         upsertDailyStat(db, {
             date: stat.date,
             project: stat.project,
             message_count: stat.message_count,
-            session_count: 0,
+            session_count: projSessionCount,
             tool_call_count: 0,
             estimated_cost_usd: totalLifetimeCost * messageShare,
             model: '',
