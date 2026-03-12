@@ -269,10 +269,12 @@ export function startCollector(db) {
 
             runCollection(db, { statsData, historyLines, apiKey });
 
-            // Retention cleanup
-            const cutoff = new Date();
-            cutoff.setDate(cutoff.getDate() - retentionDays);
-            deleteOldData(db, cutoff.toISOString().split('T')[0]);
+            // Retention cleanup (0 = keep forever)
+            if (retentionDays > 0) {
+                const cutoff = new Date();
+                cutoff.setDate(cutoff.getDate() - retentionDays);
+                deleteOldData(db, cutoff.toISOString().split('T')[0]);
+            }
 
             console.log(`[pAImon] collection complete at ${new Date().toISOString()}`);
         } catch (error) {
