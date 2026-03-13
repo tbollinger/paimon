@@ -24,9 +24,15 @@ Nothing is sent anywhere. All data stays local in a SQLite database at `data/pai
 - **Usage charts** - Messages, sessions, and tool calls over time (daily/weekly/monthly)
 - **Project breakdown** - Per-project message counts, session counts, and estimated costs
 - **Model breakdown** - Cost and usage split across Opus, Sonnet, Haiku with dithered pie chart
+- **Tool call breakdown** - Chart and table showing which tools Claude uses most (Read, Bash, Edit, etc.)
+- **Activity heatmap** - Hour-of-day x day-of-week grid showing when you use Claude most
+- **Activity calendar** - GitHub-style contribution graph with daily intensity, streaks, and active day counts
+- **Project timeline** - Multi-project activity grid with daily/weekly/monthly granularity toggle
 - **Session names** - Displays renamed session names from `claude session rename` or `/rename`
 - **Session browser** - Recent sessions table with copyable session IDs (`claude --resume`)
+- **Hide sessions** - Toggle session visibility to declutter the session list
 - **Conversation viewer** - Full chat-style modal showing your prompts and Claude's responses
+- **Collapsible sections** - Breakdowns and Activity sections collapse to reduce clutter
 - **Budget alerts** - Visual warnings when daily or monthly spend exceeds thresholds
 - **Cost estimation** - Calculates approximate costs from token counts and model pricing
 - **Auto-refresh** - Background collector ingests new data every 5 minutes
@@ -80,9 +86,11 @@ All settings have sensible defaults. pAImon works out of the box if `~/.claude` 
 2. Reads `stats-cache.json` for aggregate metrics and `history.jsonl` for detailed message history
 3. Groups messages into sessions (by explicit session ID, or by 30-minute gap threshold)
 4. Reads session names from `sessions-index.json` and `custom-title` entries in session JSONL files
-5. Calculates estimated costs from model token counts and pricing tiers
-6. Upserts everything into SQLite with WAL mode for safe concurrent reads
-7. Frontend fetches from the API and renders charts with Recharts
+5. Extracts per-tool-type call counts from session JSONL `tool_use` blocks
+6. Builds hourly activity data from message timestamps
+7. Calculates estimated costs from model token counts and pricing tiers
+8. Upserts everything into SQLite with WAL mode for safe concurrent reads
+9. Frontend fetches from the API and renders charts with Recharts
 
 ## API Endpoints
 
@@ -96,7 +104,12 @@ All settings have sensible defaults. pAImon works out of the box if `~/.claude` 
 | `GET /api/projects/:name/stats` | Per-project daily stats |
 | `GET /api/sessions` | Paginated session list |
 | `GET /api/sessions/:id` | Single session details |
+| `PATCH /api/sessions/:id/hidden` | Toggle session visibility |
 | `GET /api/sessions/:id/conversation` | Full conversation turns from JSONL |
+| `GET /api/activity/tool-breakdown` | Tool call counts by type |
+| `GET /api/activity/heatmap` | Hour x day-of-week activity grid |
+| `GET /api/activity/calendar` | Daily activity for contribution graph |
+| `GET /api/activity/project-timeline` | Per-project activity over time |
 | `GET /api/config` | Current configuration |
 | `PUT /api/config` | Update configuration |
 | `GET /api/config/status` | Collection status and health |
