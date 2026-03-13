@@ -49,10 +49,29 @@ export function createDb(dbPath) {
       value TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS tool_call_types (
+      date TEXT NOT NULL,
+      project TEXT NOT NULL DEFAULT 'all',
+      tool_name TEXT NOT NULL,
+      call_count INTEGER DEFAULT 0,
+      PRIMARY KEY (date, project, tool_name)
+    );
+
+    CREATE TABLE IF NOT EXISTS hourly_activity (
+      date TEXT NOT NULL,
+      hour INTEGER NOT NULL,
+      project TEXT NOT NULL DEFAULT 'all',
+      message_count INTEGER DEFAULT 0,
+      session_count INTEGER DEFAULT 0,
+      PRIMARY KEY (date, hour, project)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_daily_stats_date ON daily_stats(date);
     CREATE INDEX IF NOT EXISTS idx_daily_stats_project ON daily_stats(project);
     CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project);
     CREATE INDEX IF NOT EXISTS idx_sessions_started_at ON sessions(started_at);
+    CREATE INDEX IF NOT EXISTS idx_tool_call_types_date ON tool_call_types(date);
+    CREATE INDEX IF NOT EXISTS idx_hourly_activity_date ON hourly_activity(date);
   `);
 
     // Migration: add session_name column if missing (existing databases)
@@ -107,6 +126,27 @@ export function setSessionHidden(db, id, hidden) {
     return result.changes > 0;
 }
 
+export function upsertToolCallType(db, row) {
+    const stmt = db.prepare(`
+    INSERT INTO tool_call_types (date, project, tool_name, call_count)
+    VALUES (@date, @project, @tool_name, @call_count)
+    ON CONFLICT(date, project, tool_name) DO UPDATE SET
+      call_count = @call_count
+  `);
+    stmt.run(row);
+}
+
+export function upsertHourlyActivity(db, row) {
+    const stmt = db.prepare(`
+    INSERT INTO hourly_activity (date, hour, project, message_count, session_count)
+    VALUES (@date, @hour, @project, @message_count, @session_count)
+    ON CONFLICT(date, hour, project) DO UPDATE SET
+      message_count = @message_count,
+      session_count = @session_count
+  `);
+    stmt.run(row);
+}
+
 export function setConfig(db, key, value) {
     db.prepare(
         'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?',
@@ -122,4 +162,6 @@ export function deleteOldData(db, cutoffDate) {
     db.prepare('DELETE FROM daily_stats WHERE date < ?').run(cutoffDate);
     db.prepare('DELETE FROM sessions WHERE started_at < ?').run(cutoffDate);
     db.prepare('DELETE FROM api_usage WHERE date < ?').run(cutoffDate);
+    db.prepare('DELETE FROM tool_call_types WHERE date < ?').run(cutoffDate);
+    db.prepare('DELETE FROM hourly_activity WHERE date < ?').run(cutoffDate);
 }

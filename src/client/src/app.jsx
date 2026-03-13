@@ -7,8 +7,52 @@ import UsageChart from './components/usage-chart.jsx';
 import ProjectBreakdown from './components/project-breakdown.jsx';
 import ModelBreakdown from './components/model-breakdown.jsx';
 import SessionDrawer from './components/session-drawer.jsx';
+import ToolBreakdown from './components/tool-breakdown.jsx';
+import ActivityHeatmap from './components/activity-heatmap.jsx';
+import ActivityCalendar from './components/activity-calendar.jsx';
+import ProjectTimeline from './components/project-timeline.jsx';
 import { useApi } from './hooks/use-api.js';
 import { formatDateTime, formatProjectName, formatNumber } from './utils/format.js';
+
+function CollapsibleSection({ title, defaultOpen = true, children }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          cursor: 'pointer',
+          userSelect: 'none',
+          marginBottom: open ? 0 : 0,
+        }}
+      >
+        <span style={{
+          fontSize: 13,
+          fontWeight: 800,
+          color: 'var(--text-secondary)',
+          display: 'inline-block',
+          transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
+          transition: 'transform 0.15s',
+        }}>
+          &#9654;
+        </span>
+        <span style={{
+          fontSize: 18,
+          fontWeight: 800,
+          color: 'var(--text-secondary)',
+          textTransform: 'uppercase',
+          letterSpacing: 1,
+        }}>
+          {title}
+        </span>
+      </div>
+      {open && children}
+    </div>
+  );
+}
 
 function CopyLink({ sessionId, withResume }) {
   const [copied, setCopied] = useState(false);
@@ -100,14 +144,38 @@ export default function App() {
           <UsageChart filters={filters} />
         </div>
       </div>
-      <div className="grid grid-2" style={{ marginTop: 16 }}>
-        <div className="card">
-          <ProjectBreakdown filters={filters} onProjectSelect={(p) => updateFilter('project', p)} />
+      <CollapsibleSection title="Breakdowns">
+        <div className="grid grid-2" style={{ marginTop: 8 }}>
+          <div className="card">
+            <ProjectBreakdown filters={filters} onProjectSelect={(p) => updateFilter('project', p)} />
+          </div>
+          <div className="card">
+            <ModelBreakdown filters={filters} />
+          </div>
         </div>
-        <div className="card">
-          <ModelBreakdown filters={filters} />
+        <div style={{ marginTop: 16 }}>
+          <div className="card">
+            <ToolBreakdown filters={filters} />
+          </div>
         </div>
-      </div>
+      </CollapsibleSection>
+      <CollapsibleSection title="Activity">
+        <div style={{ marginTop: 8 }}>
+          <div className="card">
+            <ActivityHeatmap filters={filters} />
+          </div>
+        </div>
+        <div style={{ marginTop: 16 }}>
+          <div className="card">
+            <ActivityCalendar filters={filters} />
+          </div>
+        </div>
+        <div style={{ marginTop: 16 }}>
+          <div className="card">
+            <ProjectTimeline filters={filters} />
+          </div>
+        </div>
+      </CollapsibleSection>
       <div className="card" style={{ marginTop: 16 }}>
         <div style={{ marginBottom: 12 }}>
           <h3 style={{ fontSize: 24, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Recent Sessions</h3>

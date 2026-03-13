@@ -1,7 +1,7 @@
 // src/server/collector.js
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { deleteOldData, setConfig, upsertDailyStat, upsertSession } from './db.js';
+import { deleteOldData, setConfig, upsertDailyStat, upsertHourlyActivity, upsertSession, upsertToolCallType } from './db.js';
 import { estimateCost } from './estimator.js';
 
 const rawHome = process.env.CLAUDE_HOME || join(process.env.HOME, '.claude');
@@ -131,7 +131,8 @@ export function readSessionMetadata() {
     const projectsDir = join(CLAUDE_HOME, 'projects');
     const nameMap = new Map();
     const toolCallMap = new Map();
-    if (!existsSync(projectsDir)) return { nameMap, toolCallMap };
+    const toolCallDetailMap = new Map();
+    if (!existsSync(projectsDir)) return { nameMap, toolCallMap, toolCallDetailMap };
 
     try {
         for (const dir of readdirSync(projectsDir)) {
@@ -161,6 +162,7 @@ export function readSessionMetadata() {
                         const lines = readFileSync(join(projDir, file), 'utf-8').split('\n');
                         let lastTitle = null;
                         let toolCalls = 0;
+                        const toolDetail = new Map();
                         for (const line of lines) {
                             if (!line.trim()) continue;
                             try {
@@ -173,6 +175,8 @@ export function readSessionMetadata() {
                                     for (const block of content) {
                                         if (block && block.type === 'tool_use') {
                                             toolCalls++;
+                                            const name = block.name || 'unknown';
+                                            toolDetail.set(name, (toolDetail.get(name) || 0) + 1);
                                         }
                                     }
                                 }
@@ -185,6 +189,7 @@ export function readSessionMetadata() {
                         }
                         if (toolCalls > 0) {
                             toolCallMap.set(sessionId, toolCalls);
+                            toolCallDetailMap.set(sessionId, toolDetail);
                         }
                     } catch {
                         // skip unreadable files
@@ -198,7 +203,7 @@ export function readSessionMetadata() {
         // skip if projects dir unreadable
     }
 
-    return { nameMap, toolCallMap };
+    return { nameMap, toolCallMap, toolCallDetailMap };
 }
 
 export function runCollection(db, { statsData, historyLines, apiKey }) {
@@ -245,7 +250,7 @@ export function runCollection(db, { statsData, historyLines, apiKey }) {
     const totalHistoryMessages = historyEntries.length || 1;
 
     // === SESSION METADATA (names + tool call counts from JSONL files) ===
-    const { nameMap: sessionNames, toolCallMap } = readSessionMetadata();
+    const { nameMap: sessionNames, toolCallMap, toolCallDetailMap } = readSessionMetadata();
 
     // Build per-project per-day and all-project per-day tool call counts
     const toolCallsByProjectDay = new Map();
@@ -324,6 +329,61 @@ export function runCollection(db, { statsData, historyLines, apiKey }) {
     for (const session of sessions) {
         session.session_name = sessionNames.get(session.id) || '';
         upsertSession(db, session);
+    }
+
+    // === TOOL CALL DETAIL BY TYPE ===
+    const toolDetailByDayProject = new Map();
+    for (const session of sessions) {
+        const detail = toolCallDetailMap.get(session.id);
+        if (!detail) continue;
+        const date = session.started_at.split('T')[0];
+        for (const [toolName, count] of detail) {
+            // Per-project
+            const projKey = `${date}|${session.project}|${toolName}`;
+            toolDetailByDayProject.set(projKey, (toolDetailByDayProject.get(projKey) || 0) + count);
+            // All-project
+            const allKey = `${date}|all|${toolName}`;
+            toolDetailByDayProject.set(allKey, (toolDetailByDayProject.get(allKey) || 0) + count);
+        }
+    }
+    for (const [key, count] of toolDetailByDayProject) {
+        const [date, project, tool_name] = key.split('|');
+        upsertToolCallType(db, { date, project, tool_name, call_count: count });
+    }
+
+    // === HOURLY ACTIVITY ===
+    const hourlyMap = new Map();
+    for (const entry of historyEntries) {
+        const d = new Date(entry.timestamp);
+        const date = d.toISOString().split('T')[0];
+        const hour = d.getHours();
+        // Per-project
+        const projKey = `${date}|${hour}|${entry.project}`;
+        const projData = hourlyMap.get(projKey) || { date, hour, project: entry.project, message_count: 0, session_count: 0 };
+        projData.message_count++;
+        hourlyMap.set(projKey, projData);
+        // All-project
+        const allKey = `${date}|${hour}|all`;
+        const allData = hourlyMap.get(allKey) || { date, hour, project: 'all', message_count: 0, session_count: 0 };
+        allData.message_count++;
+        hourlyMap.set(allKey, allData);
+    }
+    // Add session counts to hourly data
+    for (const session of sessions) {
+        const d = new Date(session.started_at);
+        const date = d.toISOString().split('T')[0];
+        const hour = d.getHours();
+        const projKey = `${date}|${hour}|${session.project}`;
+        const projData = hourlyMap.get(projKey) || { date, hour, project: session.project, message_count: 0, session_count: 0 };
+        projData.session_count++;
+        hourlyMap.set(projKey, projData);
+        const allKey = `${date}|${hour}|all`;
+        const allData = hourlyMap.get(allKey) || { date, hour, project: 'all', message_count: 0, session_count: 0 };
+        allData.session_count++;
+        hourlyMap.set(allKey, allData);
+    }
+    for (const row of hourlyMap.values()) {
+        upsertHourlyActivity(db, row);
     }
 
     setConfig(db, 'last_collection_at', new Date().toISOString());

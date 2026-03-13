@@ -9,6 +9,7 @@ import { createProjectsRouter } from './src/server/routes/projects.js';
 import { createSessionsRouter } from './src/server/routes/sessions.js';
 import { createConfigRouter } from './src/server/routes/config.js';
 import { createBudgetRouter } from './src/server/routes/budget.js';
+import { createActivityRouter } from './src/server/routes/activity.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -27,6 +28,7 @@ app.use('/api/projects', createProjectsRouter(db));
 app.use('/api/sessions', createSessionsRouter(db));
 app.use('/api/config', createConfigRouter(db));
 app.use('/api/budget', createBudgetRouter(db));
+app.use('/api/activity', createActivityRouter(db));
 
 app.get('/api/health', (req, res) => {
     res.json({ success: true, data: { status: 'ok' } });
