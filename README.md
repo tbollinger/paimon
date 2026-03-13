@@ -6,6 +6,14 @@ A self-updating dashboard for monitoring your Claude Code usage, costs, and sess
 
 pAImon reads your local Claude Code data files (`~/.claude/`), ingests them into a SQLite database, and serves a black-and-white dithered dashboard that updates every 5 minutes.
 
+## Why Use pAImon
+
+Claude Code Max and Pro plans charge a flat monthly fee, but that doesn't mean usage is unlimited -- heavy sessions burn through tokens fast, and throttling kicks in when you hit the ceiling. pAImon helps you understand what you're actually getting for your money:
+
+- **See when you work** - Activity heatmaps and calendars show your usage patterns by hour and day, so you can spot peak hours, maintain streaks, and spread usage to avoid throttling.
+- **See what you work on most** - Project breakdowns, tool call charts, and project timelines reveal which codebases and tools consume the most tokens, so you can focus your subscription where it matters.
+- **See how many tokens you're spending** - Daily cost estimates, model-level usage splits, and budget alerts let you track spend against your monthly plan and catch runaway sessions before they eat your quota.
+
 ## What It Reads
 
 pAImon reads from your local Claude Code config directory (default `~/.claude/`):
