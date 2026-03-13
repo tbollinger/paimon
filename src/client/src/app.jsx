@@ -53,6 +53,7 @@ export default function App() {
   });
   const [selectedSession, setSelectedSession] = useState(null);
   const [copyWithResume, setCopyWithResume] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
 
   useEffect(() => {
     fetch('/api/config/theme')
@@ -65,9 +66,22 @@ export default function App() {
       .catch(() => {});
   }, []);
 
-  const { data: sessionsData } = useApi('/api/sessions', {
-    params: { from: filters.from, to: filters.to, project: filters.project, limit: '20' },
+  const { data: sessionsData, refetch: refetchSessions } = useApi('/api/sessions', {
+    params: { from: filters.from, to: filters.to, project: filters.project, limit: '20', show_hidden: showHidden ? '1' : '0' },
   });
+
+  const toggleHidden = useCallback(async (sessionId, hidden) => {
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/hidden`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hidden }),
+      });
+      if (res.ok) refetchSessions();
+    } catch {
+      // silent fail
+    }
+  }, [refetchSessions]);
 
   const updateFilter = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -97,17 +111,31 @@ export default function App() {
       <div className="card" style={{ marginTop: 16 }}>
         <div style={{ marginBottom: 12 }}>
           <h3 style={{ fontSize: 24, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Recent Sessions</h3>
-          <div style={{ display: 'flex', alignItems: 'flex-start', marginTop: 6 }}>
-            <input
-              type="checkbox"
-              id="copy-resume"
-              checked={copyWithResume}
-              onChange={(e) => setCopyWithResume(e.target.checked)}
-              style={{ width: 16, height: 16, cursor: 'pointer', margin: 0, marginTop: -1, flexShrink: 0 }}
-            />
-            <label htmlFor="copy-resume" style={{ marginLeft: 8, fontSize: 13, color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 400, userSelect: 'none' }}>
-              Add <code style={{ fontSize: 12 }}>claude --resume</code> to clipboard when copying
-            </label>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24, marginTop: 6, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+              <input
+                type="checkbox"
+                id="copy-resume"
+                checked={copyWithResume}
+                onChange={(e) => setCopyWithResume(e.target.checked)}
+                style={{ width: 16, height: 16, cursor: 'pointer', margin: 0, marginTop: -1, flexShrink: 0 }}
+              />
+              <label htmlFor="copy-resume" style={{ marginLeft: 8, fontSize: 13, color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 400, userSelect: 'none' }}>
+                Add <code style={{ fontSize: 12 }}>claude --resume</code> to clipboard when copying
+              </label>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+              <input
+                type="checkbox"
+                id="show-hidden"
+                checked={showHidden}
+                onChange={(e) => setShowHidden(e.target.checked)}
+                style={{ width: 16, height: 16, cursor: 'pointer', margin: 0, marginTop: -1, flexShrink: 0 }}
+              />
+              <label htmlFor="show-hidden" style={{ marginLeft: 8, fontSize: 13, color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 400, userSelect: 'none' }}>
+                Show hidden sessions
+              </label>
+            </div>
           </div>
         </div>
         <table style={{ width: '100%', fontSize: 14, borderCollapse: 'collapse' }}>
@@ -119,13 +147,14 @@ export default function App() {
               <th style={{ textAlign: 'left', padding: '6px 8px' }}>Name</th>
               <th style={{ textAlign: 'right', padding: '6px 8px' }}>Messages</th>
               <th style={{ textAlign: 'right', padding: '6px 8px' }}>Duration</th>
+              <th style={{ textAlign: 'center', padding: '6px 8px', width: 40 }}></th>
             </tr>
           </thead>
           <tbody>
             {(sessionsData || []).map((s) => (
               <tr
                 key={s.id}
-                style={{ borderBottom: '1px solid var(--border)' }}
+                style={{ borderBottom: '1px solid var(--border)', opacity: s.hidden ? 0.45 : 1 }}
               >
                 <td style={{ padding: '6px 8px' }}>{formatDateTime(s.started_at)}</td>
                 <td style={{ padding: '6px 8px' }}>{formatProjectName(s.project)}</td>
@@ -145,6 +174,15 @@ export default function App() {
                   </span>
                 </td>
                 <td style={{ textAlign: 'right', padding: '6px 8px' }}>{s.duration_minutes?.toFixed(0) || 0}m</td>
+                <td style={{ textAlign: 'center', padding: '6px 8px' }}>
+                  <span
+                    onClick={(e) => { e.stopPropagation(); toggleHidden(s.id, !s.hidden); }}
+                    title={s.hidden ? 'Unhide session' : 'Hide session'}
+                    style={{ cursor: 'pointer', fontSize: 14, color: 'var(--text-secondary)', opacity: 0.6, userSelect: 'none' }}
+                  >
+                    {s.hidden ? '\u25C9' : '\u25CE'}
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>

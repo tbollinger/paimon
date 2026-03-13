@@ -61,6 +61,11 @@ export function createDb(dbPath) {
         db.exec("ALTER TABLE sessions ADD COLUMN session_name TEXT DEFAULT ''");
     }
 
+    // Migration: add hidden column if missing (existing databases)
+    if (!cols.some((c) => c.name === 'hidden')) {
+        db.exec("ALTER TABLE sessions ADD COLUMN hidden INTEGER DEFAULT 0");
+    }
+
     return db;
 }
 
@@ -95,6 +100,11 @@ export function upsertSession(db, session) {
       session_name = @session_name
   `);
     stmt.run(session);
+}
+
+export function setSessionHidden(db, id, hidden) {
+    const result = db.prepare('UPDATE sessions SET hidden = ? WHERE id = ?').run(hidden ? 1 : 0, id);
+    return result.changes > 0;
 }
 
 export function setConfig(db, key, value) {

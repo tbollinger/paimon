@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
+import { setSessionHidden } from '../db.js';
 
 const rawHome = process.env.CLAUDE_HOME || join(process.env.HOME, '.claude');
 const CLAUDE_HOME = rawHome.startsWith('~') ? join(process.env.HOME, rawHome.slice(1)) : rawHome;
@@ -66,7 +67,7 @@ export function createSessionsRouter(db) {
     const router = Router();
 
     router.get('/', (req, res) => {
-        const { from, to, project, page = '1', limit = '20' } = req.query;
+        const { from, to, project, page = '1', limit = '20', show_hidden } = req.query;
         const pageNum = parseInt(page, 10);
         const limitNum = parseInt(limit, 10);
         const offset = (pageNum - 1) * limitNum;
@@ -75,6 +76,10 @@ export function createSessionsRouter(db) {
         let sql = 'SELECT * FROM sessions WHERE 1=1';
         const params = [];
 
+        if (show_hidden !== '1') {
+            sql += ' AND (hidden = 0 OR hidden IS NULL)';
+            countSql += ' AND (hidden = 0 OR hidden IS NULL)';
+        }
         if (from) { sql += ' AND started_at >= ?'; countSql += ' AND started_at >= ?'; params.push(from); }
         if (to) { sql += ' AND started_at <= ?'; countSql += ' AND started_at <= ?'; params.push(to); }
         if (project) { sql += ' AND project = ?'; countSql += ' AND project = ?'; params.push(project); }
@@ -97,6 +102,18 @@ export function createSessionsRouter(db) {
             return res.status(404).json({ success: false, error: 'Session not found' });
         }
         res.json({ success: true, data: row });
+    });
+
+    router.patch('/:id/hidden', (req, res) => {
+        const { hidden } = req.body;
+        if (typeof hidden !== 'boolean') {
+            return res.status(400).json({ success: false, error: 'hidden must be a boolean' });
+        }
+        const found = setSessionHidden(db, req.params.id, hidden);
+        if (!found) {
+            return res.status(404).json({ success: false, error: 'Session not found' });
+        }
+        res.json({ success: true, data: { id: req.params.id, hidden } });
     });
 
     router.get('/:id/conversation', (req, res) => {
