@@ -24,6 +24,7 @@ pAImon reads from your local Claude Code config directory (default `~/.claude/`)
 | `~/.claude/history.jsonl` | Per-message history with timestamps, projects, and session IDs |
 | `~/.claude/projects/*/[sessionId].jsonl` | Full conversation transcripts (user prompts + Claude responses) |
 | `~/.claude/projects/*/sessions-index.json` | Session metadata including renamed session names |
+| `~/.claude/projects/*/memory/*.md` | Claude's per-project memory files (user, feedback, project, reference) |
 
 Nothing is sent anywhere. All data stays local in a SQLite database at `data/paimon.db`.
 
@@ -40,7 +41,8 @@ Nothing is sent anywhere. All data stays local in a SQLite database at `data/pai
 - **Session browser** - Recent sessions table with copyable session IDs (`claude --resume`)
 - **Hide sessions** - Toggle session visibility to declutter the session list
 - **Conversation viewer** - Full chat-style modal showing your prompts and Claude's responses
-- **Collapsible sections** - Breakdowns and Activity sections collapse to reduce clutter
+- **Memory viewer** - Browse Claude's per-project memories with dithered type indicators
+- **Collapsible sections** - All sections collapse to reduce clutter
 - **Budget alerts** - Visual warnings when daily or monthly spend exceeds thresholds
 - **Cost estimation** - Calculates approximate costs from token counts and model pricing
 - **Auto-refresh** - Background collector ingests new data every 5 minutes
@@ -117,6 +119,7 @@ All settings have sensible defaults. pAImon works out of the box if `~/.claude` 
 | `GET /api/activity/tool-breakdown` | Tool call counts by type |
 | `GET /api/activity/heatmap` | Hour x day-of-week activity grid |
 | `GET /api/activity/calendar` | Daily activity for contribution graph |
+| `GET /api/memory` | Claude memory files across all projects |
 | `GET /api/activity/project-timeline` | Per-project activity over time |
 | `GET /api/config` | Current configuration |
 | `PUT /api/config` | Update configuration |

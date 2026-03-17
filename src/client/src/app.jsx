@@ -11,22 +11,29 @@ import ToolBreakdown from './components/tool-breakdown.jsx';
 import ActivityHeatmap from './components/activity-heatmap.jsx';
 import ActivityCalendar from './components/activity-calendar.jsx';
 import ProjectTimeline from './components/project-timeline.jsx';
+import MemoryViewer from './components/memory-viewer.jsx';
 import { useApi } from './hooks/use-api.js';
 import { formatDateTime, formatProjectName, formatNumber } from './utils/format.js';
 
 function CollapsibleSection({ title, defaultOpen = true, children }) {
   const [open, setOpen] = useState(defaultOpen);
+  const [hovered, setHovered] = useState(false);
   return (
-    <div style={{ marginTop: 16 }}>
+    <div>
       <div
         onClick={() => setOpen((o) => !o)}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: 8,
           cursor: 'pointer',
           userSelect: 'none',
-          marginBottom: open ? 0 : 0,
+          padding: '12px 8px',
+          borderRadius: 6,
+          background: hovered ? '#f0f0f0' : 'transparent',
+          transition: 'background 0.15s',
         }}
       >
         <span style={{
@@ -49,7 +56,7 @@ function CollapsibleSection({ title, defaultOpen = true, children }) {
           {title}
         </span>
       </div>
-      {open && children}
+      {open && <div style={{ marginBottom: 6 }}>{children}</div>}
     </div>
   );
 }
@@ -136,15 +143,15 @@ export default function App() {
       <TopBar />
       <BudgetAlert />
       <FilterBar filters={filters} onFilterChange={updateFilter} />
-      <div className="grid grid-4" style={{ marginTop: 16 }}>
+      <div className="grid grid-4" style={{ marginTop: 16, marginBottom: 6 }}>
         <SummaryCards filters={filters} />
       </div>
-      <div style={{ marginTop: 16 }}>
+      <div style={{ marginBottom: 6 }}>
         <div className="card">
           <UsageChart filters={filters} />
         </div>
       </div>
-      <CollapsibleSection title="Breakdowns">
+      <CollapsibleSection title="Breakdowns" defaultOpen={false}>
         <div className="grid grid-2" style={{ marginTop: 8 }}>
           <div className="card">
             <ProjectBreakdown filters={filters} onProjectSelect={(p) => updateFilter('project', p)} />
@@ -159,7 +166,7 @@ export default function App() {
           </div>
         </div>
       </CollapsibleSection>
-      <CollapsibleSection title="Activity">
+      <CollapsibleSection title="Activity" defaultOpen={false}>
         <div style={{ marginTop: 8 }}>
           <div className="card">
             <ActivityHeatmap filters={filters} />
@@ -176,10 +183,14 @@ export default function App() {
           </div>
         </div>
       </CollapsibleSection>
-      <div className="card" style={{ marginTop: 16 }}>
-        <div style={{ marginBottom: 12 }}>
-          <h3 style={{ fontSize: 24, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Recent Sessions</h3>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24, marginTop: 6, flexWrap: 'wrap' }}>
+      <CollapsibleSection title="Memory" defaultOpen={false}>
+        <div className="card" style={{ marginTop: 8 }}>
+          <MemoryViewer />
+        </div>
+      </CollapsibleSection>
+      <CollapsibleSection title="Recent Sessions" defaultOpen={false}>
+        <div className="card" style={{ marginTop: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24, marginBottom: 12, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start' }}>
               <input
                 type="checkbox"
@@ -205,57 +216,57 @@ export default function App() {
               </label>
             </div>
           </div>
-        </div>
-        <table style={{ width: '100%', fontSize: 14, borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)' }}>
-              <th style={{ textAlign: 'left', padding: '6px 8px' }}>Time</th>
-              <th style={{ textAlign: 'left', padding: '6px 8px' }}>Project</th>
-              <th style={{ textAlign: 'left', padding: '6px 8px' }}>Session</th>
-              <th style={{ textAlign: 'left', padding: '6px 8px' }}>Name</th>
-              <th style={{ textAlign: 'right', padding: '6px 8px' }}>Messages</th>
-              <th style={{ textAlign: 'right', padding: '6px 8px' }}>Duration</th>
-              <th style={{ textAlign: 'center', padding: '6px 8px', width: 40 }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {(sessionsData || []).map((s) => (
-              <tr
-                key={s.id}
-                style={{ borderBottom: '1px solid var(--border)', opacity: s.hidden ? 0.45 : 1 }}
-              >
-                <td style={{ padding: '6px 8px' }}>{formatDateTime(s.started_at)}</td>
-                <td style={{ padding: '6px 8px' }}>{formatProjectName(s.project)}</td>
-                <td style={{ padding: '6px 8px', fontWeight: 400 }}>
-                  <CopyLink sessionId={s.id} withResume={copyWithResume} />
-                </td>
-                <td style={{ padding: '6px 8px', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 400 }}>
-                  {s.session_name || (() => { try { const p = JSON.parse(s.prompts || '[]'); return p[0] || ''; } catch { return ''; } })()}
-                </td>
-                <td style={{ textAlign: 'right', padding: '6px 8px' }}>
-                  <span
-                    onClick={() => setSelectedSession(s)}
-                    style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                  >
-                    {formatNumber(s.message_count)}
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-                  </span>
-                </td>
-                <td style={{ textAlign: 'right', padding: '6px 8px' }}>{s.duration_minutes?.toFixed(0) || 0}m</td>
-                <td style={{ textAlign: 'center', padding: '6px 8px' }}>
-                  <span
-                    onClick={(e) => { e.stopPropagation(); toggleHidden(s.id, !s.hidden); }}
-                    title={s.hidden ? 'Unhide session' : 'Hide session'}
-                    style={{ cursor: 'pointer', fontSize: 14, color: 'var(--text-secondary)', opacity: 0.6, userSelect: 'none' }}
-                  >
-                    {s.hidden ? '\u25C9' : '\u25CE'}
-                  </span>
-                </td>
+          <table style={{ width: '100%', fontSize: 14, borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)' }}>
+                <th style={{ textAlign: 'left', padding: '6px 8px' }}>Time</th>
+                <th style={{ textAlign: 'left', padding: '6px 8px' }}>Project</th>
+                <th style={{ textAlign: 'left', padding: '6px 8px' }}>Session</th>
+                <th style={{ textAlign: 'left', padding: '6px 8px' }}>Name</th>
+                <th style={{ textAlign: 'right', padding: '6px 8px' }}>Messages</th>
+                <th style={{ textAlign: 'right', padding: '6px 8px' }}>Duration</th>
+                <th style={{ textAlign: 'center', padding: '6px 8px', width: 40 }}></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {(sessionsData || []).map((s) => (
+                <tr
+                  key={s.id}
+                  style={{ borderBottom: '1px solid var(--border)', opacity: s.hidden ? 0.45 : 1 }}
+                >
+                  <td style={{ padding: '6px 8px' }}>{formatDateTime(s.started_at)}</td>
+                  <td style={{ padding: '6px 8px' }}>{formatProjectName(s.project)}</td>
+                  <td style={{ padding: '6px 8px', fontWeight: 400 }}>
+                    <CopyLink sessionId={s.id} withResume={copyWithResume} />
+                  </td>
+                  <td style={{ padding: '6px 8px', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 400 }}>
+                    {s.session_name || (() => { try { const p = JSON.parse(s.prompts || '[]'); return p[0] || ''; } catch { return ''; } })()}
+                  </td>
+                  <td style={{ textAlign: 'right', padding: '6px 8px' }}>
+                    <span
+                      onClick={() => setSelectedSession(s)}
+                      style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    >
+                      {formatNumber(s.message_count)}
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                    </span>
+                  </td>
+                  <td style={{ textAlign: 'right', padding: '6px 8px' }}>{s.duration_minutes?.toFixed(0) || 0}m</td>
+                  <td style={{ textAlign: 'center', padding: '6px 8px' }}>
+                    <span
+                      onClick={(e) => { e.stopPropagation(); toggleHidden(s.id, !s.hidden); }}
+                      title={s.hidden ? 'Unhide session' : 'Hide session'}
+                      style={{ cursor: 'pointer', fontSize: 14, color: 'var(--text-secondary)', opacity: 0.6, userSelect: 'none' }}
+                    >
+                      {s.hidden ? '\u25C9' : '\u25CE'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CollapsibleSection>
       {selectedSession && (
         <SessionDrawer session={selectedSession} onClose={() => setSelectedSession(null)} />
       )}
