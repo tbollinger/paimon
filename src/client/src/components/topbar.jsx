@@ -6,8 +6,6 @@ export default function TopBar() {
   const { data: status } = useApi('/api/config/status');
 
   const isHealthy = status && status.last_collection_at && !status.last_collection_error;
-  const dataSource = status?.data_source || 'local';
-
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -43,7 +41,7 @@ export default function TopBar() {
           padding: '4px 12px', borderRadius: 8, fontSize: 14,
           border: '2px solid #000000',
         }}>
-          {dataSource === 'api' ? 'API' : 'Estimated'}
+          Estimated
         </span>
       </div>
     </div>

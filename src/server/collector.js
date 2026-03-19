@@ -206,7 +206,7 @@ export function readSessionMetadata() {
     return { nameMap, toolCallMap, toolCallDetailMap };
 }
 
-export function runCollection(db, { statsData, historyLines, apiKey }) {
+export function runCollection(db, { statsData, historyLines }) {
     const { dailyStats: statsCacheDays, modelTokensByDay, modelUsage } = parseStatsCache(statsData);
     const historyEntries = parseHistory(historyLines);
     const sessions = groupIntoSessions(historyEntries);
@@ -387,7 +387,7 @@ export function runCollection(db, { statsData, historyLines, apiKey }) {
     }
 
     setConfig(db, 'last_collection_at', new Date().toISOString());
-    setConfig(db, 'data_source', apiKey ? 'api' : 'local');
+    setConfig(db, 'data_source', 'local');
 }
 
 export function readStatsFile() {
@@ -410,9 +410,8 @@ export function startCollector(db) {
         try {
             const statsData = readStatsFile();
             const historyLines = readHistoryFile();
-            const apiKey = process.env.ANTHROPIC_API_KEY || null;
 
-            runCollection(db, { statsData, historyLines, apiKey });
+            runCollection(db, { statsData, historyLines });
 
             // Retention cleanup (0 = keep forever)
             if (retentionDays > 0) {

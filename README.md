@@ -83,7 +83,6 @@ cp .env.example .env
 | `REFRESH_INTERVAL` | `5` | Minutes between data collection cycles |
 | `RETENTION_DAYS` | `0` | How many days of data to keep (0 = keep forever) |
 | `CLAUDE_HOME` | `~/.claude` | Path to your Claude Code config directory |
-| `ANTHROPIC_API_KEY` | _(none)_ | Optional: enables real cost data from the Anthropic API |
 | `DAILY_BUDGET_USD` | _(none)_ | Optional: daily spend limit for budget alerts |
 | `MONTHLY_BUDGET_USD` | _(none)_ | Optional: monthly spend limit for budget alerts |
 | `DITHERED_BACKGROUND` | `true` | Set to `false` for a plain white background |

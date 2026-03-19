@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApi } from '../hooks/use-api.js';
 
 const TYPE_LABELS = {
@@ -30,6 +30,43 @@ const TYPE_BG_SIZE = {
 };
 
 const TYPE_ORDER = ['user', 'feedback', 'project', 'reference', 'unknown'];
+
+function CopyPath({ projectDir, file }) {
+    const [copied, setCopied] = useState(false);
+    const timerRef = useRef(null);
+    const fullPath = `~/.claude/projects/${projectDir}/memory/${file}`;
+
+    const handleCopy = (e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(fullPath);
+        setCopied(true);
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <div
+            onClick={handleCopy}
+            title="Copy path to clipboard"
+            style={{
+                marginTop: 8,
+                fontSize: 11,
+                color: copied ? 'var(--text-primary)' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                userSelect: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+            }}
+        >
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
+                <rect x="5" y="5" width="9" height="9" rx="1" />
+                <path d="M5 11H3a1 1 0 01-1-1V3a1 1 0 011-1h7a1 1 0 011 1v2" />
+            </svg>
+            {copied ? 'Copied!' : fullPath}
+        </div>
+    );
+}
 
 export default function MemoryViewer() {
     const { data: memories, loading } = useApi('/api/memory');
@@ -192,9 +229,7 @@ export default function MemoryViewer() {
                                     }}>
                                         {m.body}
                                     </div>
-                                    <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-secondary)' }}>
-                                        {m.project} / {m.file}
-                                    </div>
+                                    <CopyPath projectDir={m.project_dir} file={m.file} />
                                 </div>
                             )}
                             </div>

@@ -167,6 +167,7 @@ describe('database layer', () => {
             message_count: 5,
             duration_minutes: 12.5,
             prompts: '["hello","how are you"]',
+            session_name: '',
         };
 
         it('inserts a new session', () => {
@@ -289,6 +290,7 @@ describe('database layer', () => {
                 message_count: 1,
                 duration_minutes: 1,
                 prompts: '[]',
+                session_name: '',
             });
             upsertSession(db, {
                 id: 'new-sess',
@@ -297,6 +299,7 @@ describe('database layer', () => {
                 message_count: 1,
                 duration_minutes: 1,
                 prompts: '[]',
+                session_name: '',
             });
 
             deleteOldData(db, '2026-03-01');

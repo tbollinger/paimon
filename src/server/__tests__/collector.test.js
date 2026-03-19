@@ -344,7 +344,7 @@ describe('collector', () => {
                 },
             };
 
-            runCollection(db, { statsData, historyLines, apiKey: null });
+            runCollection(db, { statsData, historyLines });
 
             const rows = db.prepare('SELECT * FROM daily_stats WHERE project = ?').all('all');
 
@@ -353,8 +353,8 @@ describe('collector', () => {
             expect(rows[0].model).toBe('claude-sonnet-4');
             // Message count comes from history (3), NOT stats-cache (50)
             expect(rows[0].message_count).toBe(3);
-            // Tool call count is enriched from stats-cache
-            expect(rows[0].tool_call_count).toBe(15);
+            // Tool call count comes from session JSONL files (0 here since no JSONL files exist in test)
+            expect(rows[0].tool_call_count).toBe(0);
             expect(rows[0].estimated).toBe(1);
             expect(rows[0].estimated_cost_usd).toBeGreaterThan(0);
         });
@@ -379,7 +379,7 @@ describe('collector', () => {
                 },
             };
 
-            runCollection(db, { statsData, historyLines, apiKey: null });
+            runCollection(db, { statsData, historyLines });
 
             const rows = db.prepare('SELECT * FROM daily_stats WHERE project = ?').all('all');
 
@@ -398,7 +398,7 @@ describe('collector', () => {
                 ],
             };
 
-            runCollection(db, { statsData, historyLines, apiKey: null });
+            runCollection(db, { statsData, historyLines });
 
             const rows = db.prepare('SELECT * FROM daily_stats WHERE project = ?').all('all');
 
@@ -422,7 +422,7 @@ describe('collector', () => {
                 }),
             ];
 
-            runCollection(db, { statsData: {}, historyLines, apiKey: null });
+            runCollection(db, { statsData: {}, historyLines });
 
             const sessions = db.prepare('SELECT * FROM sessions').all();
 
@@ -440,7 +440,7 @@ describe('collector', () => {
                 JSON.stringify({ display: 'msg3', timestamp: ts + 2000, project: 'proj-b' }),
             ];
 
-            runCollection(db, { statsData: {}, historyLines, apiKey: null });
+            runCollection(db, { statsData: {}, historyLines });
 
             const projA = db
                 .prepare('SELECT * FROM daily_stats WHERE project = ?')
@@ -456,7 +456,7 @@ describe('collector', () => {
         });
 
         it('sets last_collection_at config after collection', () => {
-            runCollection(db, { statsData: {}, historyLines: [], apiKey: null });
+            runCollection(db, { statsData: {}, historyLines: [] });
 
             const lastCollection = getConfig(db, 'last_collection_at');
 
@@ -465,15 +465,9 @@ describe('collector', () => {
         });
 
         it('sets data_source to local when no api key', () => {
-            runCollection(db, { statsData: {}, historyLines: [], apiKey: null });
+            runCollection(db, { statsData: {}, historyLines: [] });
 
             expect(getConfig(db, 'data_source')).toBe('local');
-        });
-
-        it('sets data_source to api when api key is provided', () => {
-            runCollection(db, { statsData: {}, historyLines: [], apiKey: 'sk-ant-xxx' });
-
-            expect(getConfig(db, 'data_source')).toBe('api');
         });
 
         it('handles combined stats and history data', () => {
@@ -491,7 +485,7 @@ describe('collector', () => {
                 }),
             ];
 
-            runCollection(db, { statsData, historyLines, apiKey: null });
+            runCollection(db, { statsData, historyLines });
 
             const allStats = db.prepare('SELECT * FROM daily_stats WHERE project = ?').all('all');
             const projectStats = db.prepare('SELECT * FROM daily_stats WHERE project = ?').all('myproject');
